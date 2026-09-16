@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Threat Intel Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0b0f1a;
+      --bg-panel: #111827;
+      --bg-input: #1a2236;
+      --border:   #1f2d45;
+      --accent:   #1f6feb;
+      --text:     #cdd9e5;
+      --muted:    #768390;
+      --red:      #f85149;
+      --orange:   #d29922;
+      --green:    #3fb950;
+      --grey:     #6e7681;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Courier New", Courier, monospace;
+      font-size: .88rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-title {
+      font-size: .95rem;
+      font-weight: bold;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .header-sub {
+      color: var(--muted);
+      font-size: .75rem;
+      margin-left: auto;
+    }
+    #status-dot {
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      background: #0d1420;
+      border-bottom: 1px solid var(--border);
+      padding: 5px 20px;
+      display: flex;
+      gap: 24px;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+    .status-bar span { white-space: nowrap; }
+    .status-bar .ok  { color: var(--green); }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      max-width: 920px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px 20px 60px;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .panel-header {
+      background: #0d1420;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .72rem;
+      letter-spacing: .08em;
+      padding: 6px 14px;
+      text-transform: uppercase;
+    }
+    .panel-body { padding: 16px 14px; }
+
+    /* ── Toggle ── */
+    .mode-row {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      width: fit-content;
+      margin-bottom: 14px;
+    }
+    .mode-btn {
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .8rem;
+      letter-spacing: .04em;
+      padding: 6px 18px;
+      text-transform: uppercase;
+      transition: background .12s, color .12s;
+    }
+    .mode-btn:last-child { border-right: none; }
+    .mode-btn.active     { background: var(--accent); color: #fff; }
+
+    /* ── Input row ── */
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: .88rem;
+      outline: none;
+      padding: 8px 12px;
+      transition: border-color .12s;
+    }
+    .input-row input::placeholder { color: var(--muted); }
+    .input-row input:focus        { border-color: var(--accent); }
+
+    /* ── IOC textarea ── */
+    .ioc-hint {
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .ioc-textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: .82rem;
+      line-height: 1.6;
+      min-height: 120px;
+      outline: none;
+      padding: 10px 12px;
+      resize: vertical;
+      transition: border-color .12s;
+    }
+    .ioc-textarea::placeholder { color: var(--muted); }
+    .ioc-textarea:focus        { border-color: var(--accent); }
+    .ioc-footer {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .ioc-cap { color: var(--muted); font-size: .75rem; }
+
+    /* ── Buttons ── */
+    .btn-run {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: bold;
+      letter-spacing: .04em;
+      padding: 8px 22px;
+      text-transform: uppercase;
+      transition: opacity .12s;
+    }
+    .btn-run:hover    { opacity: .85; }
+    .btn-run:disabled { opacity: .4; cursor: not-allowed; }
+
+    .btn-export {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .78rem;
+      letter-spacing: .04em;
+      padding: 6px 16px;
+      text-transform: uppercase;
+      transition: background .12s, color .12s;
+    }
+    .btn-export:hover    { background: var(--accent); color: #fff; }
+    .btn-export:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Execution log ── */
+    #exec-log {
+      display: none;
+      background: #060a14;
+      border: 1px solid #1a2640;
+      font-size: .78rem;
+      line-height: 1.8;
+      margin-top: 14px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 10px 14px;
+    }
+    .log-header {
+      color: #4d7cc7;
+      font-size: .68rem;
+      letter-spacing: .1em;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .log-line      { color: #5a6775; }
+    .log-line .ts  { color: #4d7cc7; }
+    .log-line .lv  { font-weight: bold; display: inline-block; width: 48px; }
+    .lv.init  { color: #9d5bd2; }
+    .lv.api   { color: #388bfd; }
+    .lv.poll  { color: #58a6ff; }
+    .lv.proc  { color: var(--orange); }
+    .lv.ext   { color: #58a6ff; }
+    .lv.risk  { color: var(--red); }
+    .lv.done  { color: var(--green); }
+    .lv.err   { color: var(--red); }
+
+    /* ── Error box ── */
+    #error-box {
+      display: none;
+      border-left: 3px solid var(--red);
+      color: var(--red);
+      font-size: .82rem;
+      margin-top: 12px;
+      padding: 10px 14px;
+    }
+
+    /* ── Results ── */
+    #results     { display: none; }
+    #bulk-results { display: none; }
+
+    /* result table layout */
+    .result-table { width: 100%; border-collapse: collapse; }
+    .result-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table .key {
+      color: var(--muted);
+      font-size: .75rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      width: 130px;
+    }
+    .result-table .val { word-break: break-all; }
+
+    /* risk tag */
+    .risk-tag {
+      display: inline-block;
+      font-weight: bold;
+      letter-spacing: .08em;
+      padding: 2px 10px;
+    }
+    .risk-tag.red    { background: rgba(248,81,73,.15);  color: var(--red);    border: 1px solid rgba(248,81,73,.4); }
+    .risk-tag.orange { background: rgba(210,153,34,.15); color: var(--orange); border: 1px solid rgba(210,153,34,.4); }
+    .risk-tag.green  { background: rgba(63,185,80,.15);  color: var(--green);  border: 1px solid rgba(63,185,80,.4); }
+    .risk-tag.grey   { background: rgba(110,118,129,.15);color: var(--grey);   border: 1px solid rgba(110,118,129,.4); }
+
+    /* vendor stat row */
+    .stat-row { display: flex; gap: 28px; padding: 8px 10px; }
+    .stat-item .num  { font-size: 1.3rem; font-weight: bold; line-height: 1; }
+    .stat-item .lbl  { color: var(--muted); font-size: .7rem; letter-spacing: .05em; margin-top: 2px; text-transform: uppercase; }
+    .stat-item.mal   .num { color: var(--red); }
+    .stat-item.sus   .num { color: var(--orange); }
+    .stat-item.harm  .num { color: var(--green); }
+    .stat-item.undet .num { color: var(--muted); }
+
+    .rec-block {
+      border-left: 2px solid var(--accent);
+      color: var(--muted);
+      font-size: .82rem;
+      line-height: 1.65;
+      padding: 8px 12px;
+    }
+
+    /* ── Bulk results table ── */
+    .bulk-meta {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .bulk-title { font-size: .85rem; font-weight: bold; text-transform: uppercase; letter-spacing: .04em; }
+    .count-pill {
+      font-size: .7rem;
+      font-weight: bold;
+      letter-spacing: .04em;
+      padding: 2px 10px;
+      text-transform: uppercase;
+    }
+    .count-pill.red    { background: rgba(248,81,73,.12);  color: var(--red); }
+    .count-pill.orange { background: rgba(210,153,34,.12); color: var(--orange); }
+    .count-pill.green  { background: rgba(63,185,80,.12);  color: var(--green); }
+    .count-pill.grey   { background: rgba(110,118,129,.12);color: var(--grey); }
+
+    .bulk-wrap { overflow-x: auto; }
+    .bulk-tbl {
+      border-collapse: collapse;
+      font-size: .8rem;
+      min-width: 560px;
+      width: 100%;
+    }
+    .bulk-tbl th {
+      background: #0d1420;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .68rem;
+      letter-spacing: .07em;
+      padding: 8px 10px;
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .bulk-tbl td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+    .bulk-tbl tr:last-child td { border-bottom: none; }
+    .bulk-tbl tr:hover td { background: rgba(255,255,255,.02); }
+    .tgt-cell {
+      font-size: .76rem;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .num-r { text-align: right; font-variant-numeric: tabular-nums; }
+    .num-r.mal  { color: var(--red); }
+    .num-r.sus  { color: var(--orange); }
+    .num-r.harm { color: var(--green); }
+
+    .panel-footer {
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 14px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .7rem;
+      padding: 12px 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="header-title">&#9679; Threat Intel Dashboard</span>
+  <span class="header-sub">VirusTotal API v3 &nbsp;|&nbsp; <span id="clock"></span></span>
+</header>
+
+<div class="status-bar">
+  <span><span id="status-dot"></span><span class="ok">ONLINE</span></span>
+  <span>Session analyses: <span id="session-count">0</span></span>
+  <span>VT API v3</span>
+</div>
+
+<main>
+
+  <!-- Input panel -->
+  <div class="panel">
+    <div class="panel-header">Target Input</div>
+    <div class="panel-body">
+
+      <div class="mode-row" role="group">
+        <button class="mode-btn active" id="btn-url" onclick="setMode('url')">URL</button>
+        <button class="mode-btn"        id="btn-ip"  onclick="setMode('ip')">IP Address</button>
+        <button class="mode-btn"        id="btn-ioc" onclick="setMode('ioc')">IOC Scan</button>
+      </div>
+
+      <div id="single-input" class="input-row">
+        <input type="text" id="target-input"
+          placeholder="Enter URL or IP..."
+          autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <button class="btn-run" id="run-btn" onclick="runAnalysis()">Run</button>
+      </div>
+
+      <div id="ioc-area" style="display:none">
+        <p class="ioc-hint">Paste raw log output, email headers, or any unstructured text. URLs and IPs will be extracted and queried automatically.</p>
+        <textarea id="ioc-text" class="ioc-textarea"
+          placeholder="[2026-09-16 18:22:01] Connection from 203.0.113.42 to https://malicious-domain.com/payload.exe..."></textarea>
+        <div class="ioc-footer">
+          <button class="btn-run" id="ioc-btn" onclick="runIocScan()">Extract &amp; Analyse</button>
+          <span class="ioc-cap">Max 20 indicators</span>
+        </div>
+      </div>
+
+      <!-- Execution log (replaces spinner) -->
+      <div id="exec-log">
+        <div class="log-header">&#9654; Analysis Log</div>
+        <div id="log-body"></div>
+      </div>
+
+      <div id="error-box"></div>
+    </div>
+  </div>
+
+  <!-- Single result panel -->
+  <div class="panel" id="results">
+    <div class="panel-header">Analysis Report</div>
+    <div class="panel-body">
+
+      <table class="result-table">
+        <tbody>
+          <tr>
+            <td class="key">Target</td>
+            <td class="val" id="r-target" style="font-size:.82rem"></td>
+          </tr>
+          <tr>
+            <td class="key">Type</td>
+            <td class="val" id="r-type"></td>
+          </tr>
+          <tr>
+            <td class="key">Timestamp</td>
+            <td class="val" id="r-timestamp" style="color:var(--muted)"></td>
+          </tr>
+          <tr id="r-country-row" style="display:none">
+            <td class="key">Country / ASN</td>
+            <td class="val" id="r-country"></td>
+          </tr>
+          <tr>
+            <td class="key">Risk Level</td>
+            <td class="val"><span class="risk-tag" id="r-risk"></span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="stat-row" style="margin-top:4px">
+        <div class="stat-item mal">
+          <div class="num" id="s-mal">-</div>
+          <div class="lbl">Malicious</div>
+        </div>
+        <div class="stat-item sus">
+          <div class="num" id="s-sus">-</div>
+          <div class="lbl">Suspicious</div>
+        </div>
+        <div class="stat-item harm">
+          <div class="num" id="s-harm">-</div>
+          <div class="lbl">Harmless</div>
+        </div>
+        <div class="stat-item undet">
+          <div class="num" id="s-undet">-</div>
+          <div class="lbl">Undetected</div>
+        </div>
+      </div>
+
+      <div class="rec-block" style="margin-top:12px">
+        <div style="color:var(--accent);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">Recommendation</div>
+        <span id="r-rec"></span>
+      </div>
+
+    </div>
+    <div class="panel-footer">
+      <button class="btn-export" onclick="exportPDF()">Export PDF</button>
+    </div>
+  </div>
+
+  <!-- Bulk results panel -->
+  <div class="panel" id="bulk-results">
+    <div class="panel-header">IOC Scan Results</div>
+    <div class="panel-body">
+      <div class="bulk-meta">
+        <span class="bulk-title" id="bulk-title"></span>
+        <div id="bulk-pills"></div>
+      </div>
+      <div class="bulk-wrap">
+        <table class="bulk-tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Target</th>
+              <th>Type</th>
+              <th>Risk</th>
+              <th class="num-r">Mal</th>
+              <th class="num-r">Sus</th>
+              <th class="num-r">Clean</th>
+              <th class="num-r">Undet</th>
+            </tr>
+          </thead>
+          <tbody id="bulk-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel-footer">
+      <button class="btn-export" onclick="exportPDF()">Export PDF</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>Threat Intelligence Dashboard &nbsp;&middot;&nbsp; VirusTotal API v3 &nbsp;&middot;&nbsp; For authorised security analysis</footer>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let currentMode    = 'url';
+  let currentResults = [];
+  let sessionCount   = 0;
+  let _logTimer      = null;
+
+  // ── Clock ─────────────────────────────────────────────────────────────────
+  function updateClock() {
+    document.getElementById('clock').textContent =
+      new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── Mode switching ────────────────────────────────────────────────────────
+  function setMode(mode) {
+    currentMode = mode;
+    ['url','ip','ioc'].forEach(m =>
+      document.getElementById(`btn-${m}`).classList.toggle('active', m === mode)
+    );
+    document.getElementById('single-input').style.display = mode === 'ioc' ? 'none' : 'flex';
+    document.getElementById('ioc-area').style.display     = mode === 'ioc' ? 'block' : 'none';
+  }
+
+  document.getElementById('target-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runAnalysis();
+  });
+
+  // ── Execution log ─────────────────────────────────────────────────────────
+  const LOG_SEQ = {
+    url: [
+      "INIT  Submitting URL for analysis",
+      "API   POST /api/v3/urls - queued",
+      "POLL  GET /api/v3/analyses/{id} - status: queued (1/8)",
+      "POLL  status: in-progress (2/8)",
+      "PROC  Parsing vendor detection signatures",
+      "RISK  Aggregating threat score",
+    ],
+    ip: [
+      "INIT  Initiating IP reputation lookup",
+      "API   GET /api/v3/ip_addresses/{target}",
+      "PROC  Parsing geolocation + ASN attribution",
+      "PROC  Correlating historical detection events",
+      "RISK  Computing threat score",
+    ],
+    ioc: [
+      "INIT  Scanning input text for indicators of compromise",
+      "EXT   Extracting URLs and IPv4 addresses",
+      "PROC  Deduplicating extracted indicators",
+      "API   Submitting indicators to VirusTotal",
+      "PROC  Aggregating vendor responses",
+      "RISK  Computing per-indicator threat scores",
+    ],
+  };
+
+  function startLog(mode) {
+    clearInterval(_logTimer);
+    const body = document.getElementById('log-body');
+    body.innerHTML = '';
+    document.getElementById('exec-log').style.display = 'block';
+    document.getElementById('error-box').style.display = 'none';
+    const seq = LOG_SEQ[mode] || LOG_SEQ.url;
+    let idx = 0;
+
+    function pushLine(msg) {
+      const ts  = new Date().toISOString().slice(11, 19);
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      const firstSpace = msg.indexOf(' ');
+      const level = msg.slice(0, firstSpace).trim().toLowerCase();
+      const text  = msg.slice(firstSpace).trim();
+      div.innerHTML = `<span class="ts">[${ts}]</span> <span class="lv ${level}">${level.toUpperCase()}</span>  ${escHtml(text)}`;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    pushLine(seq[idx++]);
+    _logTimer = setInterval(() => {
+      if (idx < seq.length) pushLine(seq[idx++]);
+    }, 1350);
+  }
+
+  function endLog(ok, detail) {
+    clearInterval(_logTimer);
+    const ts   = new Date().toISOString().slice(11, 19);
+    const body = document.getElementById('log-body');
+    const div  = document.createElement('div');
+    div.className = 'log-line';
+    if (ok) {
+      div.innerHTML = `<span class="ts">[${ts}]</span> <span class="lv done">DONE</span>  ${escHtml(detail || 'Report ready')}`;
+    } else {
+      div.innerHTML = `<span class="ts">[${ts}]</span> <span class="lv err">ERR</span>   Analysis failed`;
+    }
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function clearResults() {
+    document.getElementById('results').style.display      = 'none';
+    document.getElementById('bulk-results').style.display = 'none';
+    document.getElementById('error-box').style.display    = 'none';
+  }
+
+  function showError(msg) {
+    document.getElementById('exec-log').style.display = 'none';
+    const box = document.getElementById('error-box');
+    box.textContent = '[ ERROR ] ' + msg;
+    box.style.display = 'block';
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function trunc(s, n) {
+    return s.length > n ? s.slice(0, n) + '...' : s;
+  }
+
+  // ── Single analysis ───────────────────────────────────────────────────────
+  async function runAnalysis() {
+    const target = document.getElementById('target-input').value.trim();
+    if (!target) { showError('No target provided.'); return; }
+
+    clearResults();
+    startLog(currentMode);
+    const btn = document.getElementById('run-btn');
+    btn.disabled = true;
+
+    try {
+      const res  = await fetch('/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, type: currentMode }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        endLog(false);
+        showError(data.error);
+        return;
+      }
+      endLog(true, `Risk: ${data.risk_level} — ${data.malicious} malicious / ${data.suspicious} suspicious`);
+      currentResults = [data];
+      sessionCount++;
+      document.getElementById('session-count').textContent = sessionCount;
+      renderResult(data);
+    } catch {
+      endLog(false);
+      showError('Network error — is Flask running?');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderResult(d) {
+    document.getElementById('r-target').textContent    = d.target;
+    document.getElementById('r-type').textContent      = d.type;
+    document.getElementById('r-timestamp').textContent = d.timestamp || '';
+
+    const countryRow = document.getElementById('r-country-row');
+    if (d.country && d.country !== 'Unknown') {
+      let geo = d.country;
+      if (d.as_owner && d.as_owner !== 'Unknown') geo += ' / ' + d.as_owner;
+      document.getElementById('r-country').textContent = geo;
+      countryRow.style.display = '';
+    } else {
+      countryRow.style.display = 'none';
+    }
+
+    const riskEl = document.getElementById('r-risk');
+    riskEl.textContent = '[ ' + d.risk_level + ' ]';
+    riskEl.className   = 'risk-tag ' + (d.risk_color || 'grey');
+
+    document.getElementById('s-mal').textContent   = d.malicious  ?? '-';
+    document.getElementById('s-sus').textContent   = d.suspicious ?? '-';
+    document.getElementById('s-harm').textContent  = d.harmless   ?? '-';
+    document.getElementById('s-undet').textContent = d.undetected ?? '-';
+
+    document.getElementById('r-rec').textContent = d.recommendation || '';
+    document.getElementById('results').style.display = 'block';
+  }
+
+  // ── IOC scan ──────────────────────────────────────────────────────────────
+  async function runIocScan() {
+    const text = document.getElementById('ioc-text').value.trim();
+    if (!text) { showError('No text provided.'); return; }
+
+    clearResults();
+    startLog('ioc');
+    const btn = document.getElementById('ioc-btn');
+    btn.disabled = true;
+
+    try {
+      const res  = await fetch('/ioc-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        endLog(false);
+        showError(data.error);
+        return;
+      }
+      endLog(true, `${data.total} indicator(s) processed`);
+      currentResults = data.results;
+      sessionCount++;
+      document.getElementById('session-count').textContent = sessionCount;
+      renderBulk(data.results);
+    } catch {
+      endLog(false);
+      showError('Network error — is Flask running?');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderBulk(results) {
+    const counts   = { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+    const colorMap = { HIGH: 'red', MEDIUM: 'orange', LOW: 'green', UNKNOWN: 'grey' };
+    results.forEach(r => { const l = r.risk_level || 'UNKNOWN'; counts[l] = (counts[l] || 0) + 1; });
+
+    document.getElementById('bulk-title').textContent =
+      `${results.length} indicator${results.length !== 1 ? 's' : ''}`;
+
+    document.getElementById('bulk-pills').innerHTML = Object.entries(counts)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => `<span class="count-pill ${colorMap[k]}">${v} ${k}</span>`)
+      .join(' ');
+
+    const tbody = document.getElementById('bulk-tbody');
+    tbody.innerHTML = '';
+    results.forEach((r, i) => {
+      const tr    = document.createElement('tr');
+      const risk  = r.risk_level || 'UNKNOWN';
+      const color = r.risk_color || 'grey';
+      const tgt   = r.target || '-';
+      tr.innerHTML = `
+        <td style="color:var(--muted)">${i + 1}</td>
+        <td class="tgt-cell" title="${escHtml(tgt)}">${escHtml(trunc(tgt, 40))}</td>
+        <td>${escHtml(r.type || '-')}</td>
+        <td><span class="risk-tag ${color}">[ ${risk} ]</span></td>
+        <td class="num-r mal">${r.malicious  ?? '-'}</td>
+        <td class="num-r sus">${r.suspicious ?? '-'}</td>
+        <td class="num-r harm">${r.harmless  ?? '-'}</td>
+        <td class="num-r">${r.undetected ?? '-'}</td>
+      `;
+      if (r.error) tr.title = r.error;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('bulk-results').style.display = 'block';
+  }
+
+  // ── PDF export ────────────────────────────────────────────────────────────
+  async function exportPDF() {
+    if (!currentResults.length) return;
+    const btns = document.querySelectorAll('.btn-export');
+    btns.forEach(b => { b.disabled = true; b.textContent = 'Generating...'; });
+
+    try {
+      const res = await fetch('/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: currentResults }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'PDF generation failed.');
+        return;
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `threat_report_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Network error during PDF export.');
+    } finally {
+      btns.forEach(b => { b.disabled = false; b.textContent = 'Export PDF'; });
+    }
+  }
+</script>
+
+</body>
+</html>
