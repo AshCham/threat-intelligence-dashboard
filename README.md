@@ -1,6 +1,6 @@
 # Threat Intelligence Dashboard
 
-A Flask web app I built over the summer to get proper hands-on experience with the VirusTotal API and understand how threat intelligence platforms actually work under the hood. The motivation came from spending too much time manually copy-pasting suspicious IPs and URLs from my home lab's router logs into VirusTotal's web UI one at a time — I wanted to automate that.
+A Flask web app I built over the summer to get proper hands-on experience with the VirusTotal API and understand how threat intelligence platforms actually work under the hood. The motivation came from spending too much time manually copy-pasting suspicious IPs and URLs from my home lab's router logs into VirusTotal's web UI one at a time I wanted to automate that.
 
 It queries 70+ antivirus and threat intelligence engines via the VirusTotal v3 API and aggregates the results into a risk verdict. There's also an IOC scan mode where you paste a raw log excerpt and it automatically extracts and analyses every URL and IP it finds.
 
@@ -8,7 +8,7 @@ It queries 70+ antivirus and threat intelligence engines via the VirusTotal v3 A
 
 ## How it works
 
-**For URL analysis:** VirusTotal doesn't process URLs synchronously. You POST to `/api/v3/urls` and get back an analysis ID, then have to poll `/api/v3/analyses/{id}` until the status flips from `queued` → `in-progress` → `completed`. I built the polling loop from scratch to understand this — it wasn't obvious from the docs initially and I burned a few hours thinking something was broken when the results were just still queued.
+**For URL analysis:** VirusTotal doesn't process URLs synchronously. You POST to `/api/v3/urls` and get back an analysis ID, then have to poll `/api/v3/analyses/{id}` until the status flips from `queued` → `in-progress` → `completed`. I built the polling loop from scratch to understand this it wasn't obvious from the docs initially and I burned a few hours thinking something was broken when the results were just still queued.
 
 **For IP analysis:** Much simpler — a single GET to `/api/v3/ip_addresses/{ip}` returns historical detection data, geolocation, and ASN attribution all in one response.
 
